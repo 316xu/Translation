@@ -53,3 +53,146 @@
 * 用户接口（大多数情况下是 MVC 框架）或者其它的传递机制，这些都依赖于业务逻辑。业务逻辑是很抽象的一个东西。用户接口很具体。UI 只是工程的一个细节，并且它很易变。没有什么应该依赖 UI 或者依赖你的 MVC 框架。
 * 另一个有趣的发现是你的持久化数据和数据库依赖于业务逻辑。你的业务逻辑是不应该知道数据库的。这允许你按照你的意愿修改持久层。如果明天你想将 MySql 换成 PostgreSQL 或者纯文本，那你就能够这样的。当然了，你得实现一个特定的持久层，但是你业务逻辑一行代码都不用改。这里有一个关于持久数据的更详细的教程 [Evolving Toward a Persistence Layer](http://code.tutsplus.com/tutorials/evolving-toward-a-persistence-layer--net-27138)
 * 最后，在业务逻辑的右边，我们有所有关于创建业务逻辑的类。这些是在程序入口创建的类和类的工厂。很多人认为这些应该属于业务逻辑，但是当它们创建了业务对象的时候，它们唯一的职责就是做这个。它们的就是帮助我们创建别的类。它们创建的业务对象和工厂本身是相互独立的。我们也可以使用别的模式，比如简单工厂等。这都不重要，只要业务对象生成后能工作就好了。
+
+
+
+# 看代码
+
+​	 如果你已经学过了课程 [agile design patterns](https://tutsplus.com/course/agile-design-patterns/)，拿就会发现在架构层面应用依赖导致原则是一件很简单的事。同时在业务逻辑里检测它也是一件简单且有趣的事。让我们考虑一个电子书阅读器程序。
+
+```php
+class Test extends PHPUnit_Framework_TestCase {
+ 
+    function testItCanReadAPDFBook() {
+        $b = new PDFBook();
+        $r = new PDFReader($b);
+ 
+        $this->assertRegExp('/pdf book/', $r->read());
+    }
+ 
+}
+ 
+class PDFReader {
+ 
+    private $book;
+ 
+    function __construct(PDFBook $book) {
+        $this->book = $book;
+    }
+ 
+    function read() {
+        return $this->book->read();
+    }
+ 
+}
+ 
+class PDFBook {
+ 
+    function read() {
+        return "reading a pdf book.";
+    }
+}
+```
+
+​	我们开始开发一个 PDF 阅读器。当目前位置一切都没什么问题。我们有了一个使用 `PDFBook` 的`PDFReader`。 它的方法 `read()`  调用了书籍的 `read()` 方法。我们只是对 `PDFBook` 的 `reader()` 方法的返回值做了一个简单的正则校验。
+
+​	请记住这只是一个例子。我们将不会真的去实现 PDF 文件的读取逻辑。这就是为什么我们只简单的检验一部分字符串。如果我们写的是真的应用，唯一区别就是怎么验证文件类型。我们程序的依赖模型是非常简单的。
+
+![pdfreader-pdfbook](https://cdn.tutsplus.com/net/uploads/2014/02/pdfreader-pdfbook.png)
+
+​	一个 PDFReader 使用 PDFBook，这看上去是一个合理的方案，如果我们的应用只是用来阅读 PDF 的话。但是我们想写的是一个通用的电子书阅读器，支持包括 PDF 在内的多种格式。现在让我们重命名一下我们的类。
+
+
+
+```php
+class Test extends PHPUnit_Framework_TestCase {
+ 
+    function testItCanReadAPDFBook() {
+        $b = new PDFBook();
+        $r = new EBookReader($b);
+ 
+        $this->assertRegExp('/pdf book/', $r->read());
+    }
+ 
+}
+ 
+class EBookReader {
+ 
+    private $book;
+ 
+    function __construct(PDFBook $book) {
+        $this->book = $book;
+    }
+ 
+    function read() {
+        return $this->book->read();
+    }
+ 
+}
+ 
+class PDFBook {
+ 
+    function read() {
+        return "reading a pdf book.";
+    }
+}
+```
+
+重命名没有影响到函数内容，测试依然没问题。
+
+```
+Testing started at 1:04 PM ...
+PHPUnit 3.7.28 by Sebastian Bergmann.
+Time: 13 ms, Memory: 2.50Mb
+OK (1 test, 1 assertion)
+Process finished with exit code 0
+```
+
+但是对于设计产生了严重的影响
+
+![ebookreader-pdfbook](https://cdn.tutsplus.com/net/uploads/2014/02/ebookreader-pdfbook.png)
+
+​	我们的阅读器变得更抽象了。但是我们的通用类 `EbookReader` 仍然在使用 `PDFBook`。在这里抽象依赖具体。事实上我们的 PDF 应该只是一个实例，没有哪个应该依赖它。
+
+```php
+class Test extends PHPUnit_Framework_TestCase {
+ 
+    function testItCanReadAPDFBook() {
+        $b = new PDFBook();
+        $r = new EBookReader($b);
+ 
+        $this->assertRegExp('/pdf book/', $r->read());
+    }
+ 
+}
+ 
+interface EBook {
+    function read();
+}
+ 
+class EBookReader {
+ 
+    private $book;
+ 
+    function __construct(EBook $book) {
+        $this->book = $book;
+    }
+ 
+    function read() {
+        return $this->book->read();
+    }
+ 
+}
+ 
+class PDFBook implements EBook{
+ 
+    function read() {
+        return "reading a pdf book.";
+    }
+}
+```
+
+​	最常见的用来反转依赖关系的解决方案是在我们的工程里引入更多的抽象模块。”在 OOP 里最抽象的组件是接口。所以，任何类都可以依赖接口同时遵循 DIP“。
+
+​	让我们为我们的读者创建接口。这个接口命名为 `EBook`
+
