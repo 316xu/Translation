@@ -194,5 +194,87 @@ class PDFBook implements EBook{
 
 ​	最常见的用来反转依赖关系的解决方案是在我们的工程里引入更多的抽象模块。”在 OOP 里最抽象的组件是接口。所以，任何类都可以依赖接口同时遵循 DIP“。
 
-​	让我们为我们的读者创建接口。这个接口命名为 `EBook`
+​	让我们为我们的读者创建接口。这个接口命名为  `EBook`，它是 `EBookReader` 需要的东西。这是为了实现 [接口隔离原则](http://dev.tutsplus.com/tutorials/solid-part-3-liskov-substitution-interface-segregation-principles--net-36710) 的直接结果，促进了接口应该反映用户需求的想法。接口是提供给用户使用的，所以它们的命名应该能反映用户的需求并包含用户需要的方法。那么很自然的，对于一个 `EBookReader` 需要一个具有 `read()` 方法的 `EBookReader` 接口。
+
+![](https://cdn.tutsplus.com/net/uploads/2014/02/ebookreader-ebookinterface-pdfbook.png)
+
+我们现在有两个依赖关系了。
+
+* 第一个依赖从 `EBookReader` 指向 `EBook` 接口，它的类型是应用，`EBookReader` 使用了 `EBook`。
+* 第二个有所不同，它从 `PDFBook` 指向了 `EBook`，它的类型是实现。`PDFBook` 仅仅只是 `EBook` 的一种特殊类型，所以接口的实现是为了满足用户的需求。
+
+​	这个解决方案允许我们将不同类型的电子书插到我们的阅读器里去，唯一的条件就是所有的电子书都要实现 `EBook` 接口。
+
+```PHP
+class Test extends PHPUnit_Framework_TestCase {
+ 
+    function testItCanReadAPDFBook() {
+        $b = new PDFBook();
+        $r = new EBookReader($b);
+ 
+        $this->assertRegExp('/pdf book/', $r->read());
+    }
+ 
+    function testItCanReadAMobiBook() {
+        $b = new MobiBook();
+        $r = new EBookReader($b);
+ 
+        $this->assertRegExp('/mobi book/', $r->read());
+    }
+ 
+}
+ 
+interface EBook {
+    function read();
+}
+ 
+class EBookReader {
+ 
+    private $book;
+ 
+    function __construct(EBook $book) {
+        $this->book = $book;
+    }
+ 
+    function read() {
+        return $this->book->read();
+    }
+ 
+}
+ 
+class PDFBook implements EBook {
+ 
+    function read() {
+        return "reading a pdf book.";
+    }
+}
+ 
+class MobiBook implements EBook {
+ 
+    function read() {
+        return "reading a mobi book.";
+    }
+}
+```
+
+​	这么做反过来帮助我们实现了 [开闭原则](http://dev.tutsplus.com/tutorials/solid-part-2-the-openclosed-principle--net-36600)。
+
+开闭原则是一个能够帮助我们实现其它原则的原则。遵循 DIP 将会：
+
+* 几乎强迫你完成 OCP。
+* 允许你分离职责。
+* 让你正确的使用子类。
+* 让你有机会分离接口。
+
+
+
+## 最后的思考
+
+​	我们已经讲完了所有的东西了，所有关于 SOLID 原则的教程都在这儿了。对于我个人来说，发现并且在工程中实现这些原则是一个很大的进步。我曾经关于设计和架构的观念被彻底推翻，并且我可以说从那时开始我做的工程变得越来越易于管理和理解。
+
+​	我认为 SOLID 原则是面向对象编程中最基础的概念之一。这些概念一定会让我们的代码更加完善并且让我们作为一个程序员过得更轻松。设计合理的代码更容易理解。电脑很聪明，不管你的代码多复杂它都能理解，但是人不一样，你能牢记在脑子里的东西是有限的。 更具体的说，能记住的东西的数量是 [The Magical Number Seven, Plus or Minus Two](http://www.musanim.com/miller1956/)。
+
+​	我们应该尽力限制我们代码的架构数量，这里有很多方法帮助我们完成这个目标。方法不超过四行（算上定义5行），这样我们一下就能看完它。大括号层数不要超过5层。一个类不要超过9个方法。我们的图表中的高层架构用了四到五个概念。我们介绍了5个 SOLID 原则，每一个需要5 - 9 个子概念/模块/类来例证。一个团队的合理人数是5-9人。一个公司里合适的团队数是5-9。
+
+​	你也看到了，7是一个多么神奇的数字，上下浮动2总是和我们相关，那么你的代码有什么理由不一样。	
 
